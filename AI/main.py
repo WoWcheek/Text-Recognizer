@@ -1,8 +1,22 @@
 import easyocr
+import base64
+from io import BytesIO
+from PIL import Image
 
-reader = easyocr.Reader(['en'])
+def read_text_from_base64(base64_string):
+    image_data = base64.b64decode(base64_string)
+    image = Image.open(BytesIO(image_data))
+    
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    
+    reader = easyocr.Reader(['en', "uk", "ru"])
+    
+    result = reader.readtext(buffered.getvalue(), detail=0)
+    
+    return " ".join(result)
 
-image_path = "figure-65.png"
-result = reader.readtext(image_path, detail=0)
+base64_string = ""
+text = read_text_from_base64(base64_string)
 
-print(result)
+print("Розпізнаний текст:", text)
