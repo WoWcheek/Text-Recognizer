@@ -2,25 +2,30 @@ import uvicorn
 import string
 import jwt
 import random
-from config import config
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-from db.models.User import User
+from db.models.User import User 
 
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
+from fastapi.openapi.utils import get_openapi
+from utils.get_user import verify_token
 
 
 from routes.user_route import user_route
 from routes.image_route import image_route
 
+from config import config
+
+
 SECRET_KEY = config['SECRET']
 GOOGLE_CLIENT_ID = config['GOOGLE_CLIENT_ID']
 GOOGLE_CLIENT_SECRET = config['GOOGLE_CLIENT_SECRET']
 REDIRECT_URI = config['REDIRECT_URI']
+
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -34,6 +39,30 @@ app.add_middleware(
 
 app.include_router(user_route, prefix="/user", tags=["Users"])
 app.include_router(image_route, prefix="/image")
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+    openapi_schema = get_openapi(
+        title="Your API",
+        version="1.0.0",
+        description="API with JWT",
+        routes=app.routes,
+    )
+    openapi_schema["components"]["securitySchemes"] = {
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+        }
+    }
+    for path in openapi_schema["paths"]:
+        for method in openapi_schema["paths"][path]:
+            openapi_schema["paths"][path][method]["security"] = [{"BearerAuth": []}]
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
 
 oauth = OAuth()
 oauth.register(
@@ -72,21 +101,20 @@ async def auth_callback(request: Request):
         userinfo = token.get("userinfo")
         if not userinfo:
             userinfo = await oauth.google.parse_id_token(request, token)
-        
+
         if not userinfo.get("email"):
             raise HTTPException(status_code=400, detail="Failed to get user email")
-        
-        jwt_token = create_jwt_token(
-            email=userinfo["email"],
-            name=userinfo.get("name", "")
-        )
 
-        if User.users_collection.count_documents({'email': userinfo["email"]}) == 0:
+        email = userinfo["email"]
+        name = userinfo.get("name", "")
+
+        if User.users_collection.count_documents({'email': email}) == 0:
             new_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=20))
             User.create({
                 '_id': new_id,
-                'email': userinfo["email"],
-                'name': userinfo.get("name", ""),
+                'email': email,
+                'name': name,
+                'role': 'user', 
                 'limits': {
                     'count': 0,
                     'time': -1
@@ -97,24 +125,20 @@ async def auth_callback(request: Request):
                 }
             })
         else:
-            User.users_collection.update_one({'email': userinfo['email']}, {
-                "$set": {
-                    'name': userinfo.get("name", "")
-                }
-            })
+            User.users_collection.update_one(
+                {'email': email},
+                {"$set": {"name": name}}
+            )
+
+        jwt_token = create_jwt_token(email=email, name=name)
 
         return RedirectResponse(url=f"http://localhost:3000?token={jwt_token}", status_code=302)
-        
-        return {
-            "message": "Успешный вход",
-            "token": jwt_token,
-            "user_info": {
-                "email": userinfo["email"],
-                "name": userinfo.get("name", "")
-            }
-        }
+
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=80)

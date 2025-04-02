@@ -11,6 +11,8 @@ from db.models.User import User
 
 from datetime import datetime
 
+from db.models.Query import Query
+
 reader = easyocr.Reader(['en'])
 image_route = APIRouter()
 
@@ -89,4 +91,9 @@ def read_from_image(request: ImageRequest, user: dict = Depends(get_current_user
     if len(base_64_parts) != 2:
         raise HTTPException(status_code=400, detail="Invalid image data")
     text = decode_text_from_base64(base_64_parts[1])
+    Query.create(
+    user_id=userData['_id'],
+    image_data=request.image,
+    recognized_text=text
+)
     return {"decoded_text": text}
