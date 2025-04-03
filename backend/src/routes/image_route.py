@@ -44,45 +44,40 @@ def decode_text_from_base64(base64_string: str) -> str:
 
 @image_route.post("/read-from-image")
 def read_from_image(request: ImageRequest, user: dict = Depends(get_current_user)):
-    userData = User.users_collection.find_one({'email': user['sub']})
+    userData = user  # вже з бази, не треба повторно шукати
+
     limits = userData['limits']
-
     subscription_type = userData['subscription']['type']
-
     count_limit = PLANS[subscription_type]['limits']
 
     if count_limit != -1:
         if count_limit <= limits['count']:
-
             if limits['time'] == -1:
                 User.users_collection.update_one({
-                    'email': user['sub']
-                }, 
-                {'$set': {
+                    'email': userData['email']
+                }, {'$set': {
                     'limits.time': datetime.now().timestamp() + 86400
                 }})
-
                 return {'ratelimits': True}
             else:
                 if limits['time'] < datetime.now().timestamp():
                     User.users_collection.update_one({
-                        'email': user['sub']
-                    }, 
-                        {'$set': {
-                            'limits': {
-                                'count': 0,
-                                'time': -1
-                            }
+                        'email': userData['email']
+                    }, {'$set': {
+                        'limits': {
+                            'count': 0,
+                            'time': -1
+                        }
                     }})
                 else:
                     return {'ratelimits': True}
         else:
-             User.users_collection.update_one({
-                    'email': user['sub']
-                }, 
-                {'$inc': {
-                    'limits.count': 1
-                }})
+            User.users_collection.update_one({
+                'email': userData['email']
+            }, {'$inc': {
+                'limits.count': 1
+            }})
+
 
                     
 

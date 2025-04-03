@@ -1,19 +1,33 @@
 import jwt
 from config import config
-from fastapi import HTTPException, Request
+from fastapi import HTTPException, Request, Depends, status
 from db.models.User import User
 
-async def get_current_user(request: Request):
-    token = request.headers.get("Authorization")
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+SECRET_KEY = "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"
+ALGORITHM = "HS256"
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
     try:
-        token = token.split("Bearer ")[1]
-        payload = jwt.decode(token, config['SECRET'], algorithms=["HS256"])
-        return payload
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email = payload.get("sub")
+        if email is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        
+        user = User.users_collection.find_one({"email": email})
+        if not user:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+
+        return user
+
+    except JWTError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
 
 def verify_token(request: Request):
     token = request.headers.get("Authorization")

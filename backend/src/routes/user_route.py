@@ -19,7 +19,7 @@ async def me(user: dict = Depends(get_current_user)):
 
 @user_route.get("/subscription")
 async def get_subscription(user: dict = Depends(get_current_user)):
-    user_data = User.users_collection.find_one({'email': user['sub']})
+    user_data = User.users_collection.find_one({'email': user['email']})
 
     return {
         "data": user_data['subscription']
@@ -48,7 +48,7 @@ def create_query_by_user(data: dict = Body(...), user=Depends(get_current_user))
     if not image or not text:
         raise HTTPException(status_code=400, detail="Image and text are required")
 
-    user_id = user.get("sub")  # беремо з токена
+    user_id = str(user["_id"])
 
     return Query.create({
         "userId": user_id,
@@ -83,7 +83,7 @@ async def buy_subscription(request: Request, user: dict = Depends(get_current_us
         }
     
     new_data = User.users_collection.update_one({
-        'email': user['sub']
+        'email': user['email']
     }, {'$set': {
         'subscription': {
             'type': _type,
@@ -103,7 +103,7 @@ async def set_subscription_for_user(user_id: str, request: Request, user: dict =
         return {'error': 'Тариф має бути один з: free, standart, pro'}
 
     result = User.users_collection.update_one(
-        {'_id': ObjectId(user_id)},
+        {'_id': user_id},
         {'$set': {'subscription': {'type': _type, 'time': -1}}}
     )
 
