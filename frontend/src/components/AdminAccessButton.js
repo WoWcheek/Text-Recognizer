@@ -21,7 +21,7 @@ const AdminAccessButton = ({ user }) => {
       }}
       title="AdminPanel"
     >
-      👑
+      ⚡
     </button>
   );
 };

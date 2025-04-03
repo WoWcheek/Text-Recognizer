@@ -61,6 +61,7 @@ const Input = styled.input`
 const Button = styled.button`
   padding: 12px 24px;
   border: none;
+  margin-top: 20px;
   background-color: #007bff;
   color: white;
   border-radius: 8px;
@@ -151,7 +152,7 @@ const Card = styled.div`
 
 const SubscriptionButton = styled(Button)`
   background-color: #6c757d;
-  margin-top: 10px;
+  margin-top: 20px;
 
   &:hover {
     background-color: #5a6268;
@@ -337,22 +338,6 @@ const App = () => {
     window.location.href = `${API_BASE}/auth/google`;
   };
 
-  // const handleCallback = async () => {
-  //   const urlParams = new URLSearchParams(window.location.search);
-  //   const token = urlParams.get("token");
-
-  //   if (token) {
-  //     localStorage.setItem("token", token);
-  //     fetchUserInfo(token);
-  //     fetchSubscriptionInfo(token);
-  //     window.history.replaceState({}, document.title, "/");
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   handleCallback();
-  // }, []);
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     setUser(null);
@@ -441,6 +426,8 @@ const App = () => {
       <Route path="/" element={
         <Container>
         <Card>
+        {user && <AdminAccessButton user={user.user} />}
+
           <Title>Image Text Recognition</Title>
           
           <div style={{display: 'flex', alignContent: 'center', flexDirection: 'column'}}>
@@ -468,7 +455,6 @@ const App = () => {
                 <Button onClick={handleLogout} style={{backgroundColor: "#dc3545"}}>
                   Выйти
                 </Button>
-                  <AdminAccessButton user={user.user} />
 
 
               </>

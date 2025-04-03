@@ -91,9 +91,13 @@ def read_from_image(request: ImageRequest, user: dict = Depends(get_current_user
     if len(base_64_parts) != 2:
         raise HTTPException(status_code=400, detail="Invalid image data")
     text = decode_text_from_base64(base_64_parts[1])
-    Query.create(
-    user_id=userData['_id'],
-    image_data=request.image,
-    recognized_text=text
-)
+    print("📤 Sending to Query.create")
+    Query.create({
+    "userId": str(userData['_id']),
+    "image": request.image,
+    "text": text
+    })
+    print("✅ Query.create executed")
+    print("📦 Text:", repr(text))  
+
     return {"decoded_text": text}
