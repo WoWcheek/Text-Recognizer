@@ -10,6 +10,12 @@ const AdminPanel = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
+  const [editingUserId, setEditingUserId] = useState(null);
+const [newRole, setNewRole] = useState("");
+const [newPlan, setNewPlan] = useState("");
+
+
+  
 
   useEffect(() => {
     axios
@@ -34,43 +40,7 @@ const AdminPanel = () => {
   
   
 
-  const handleEditUser = (user) => {
-    const newRole = prompt("Введіть нову роль (user/admin):", user.role || "");
-    if (!newRole) return;
   
-    const newPlan = prompt("Введіть новий тариф (free/standart/pro):", user.subscription?.type || "free");
-    if (!["free", "standart", "pro"].includes(newPlan)) {
-      alert("Недійсний тариф. Можливі варіанти: free, standart, pro.");
-      return;
-    }
-  
-    axios
-      .patch(
-        `${API_BASE}/user/admin/edit/${user._id}`,
-        { role: newRole },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      .then(() => {
-        // оновлюємо роль в локальному списку
-        setUsers(users.map((u) => (u._id === user._id ? { ...u, role: newRole } : u)));
-      })
-      .catch((err) => console.error("Помилка оновлення ролі:", err));
-  
-    axios
-      .post(
-        `${API_BASE}/user/admin/set-subscription/${user._id}`,
-        { type: newPlan },
-        { headers: { Authorization: `Bearer ${token}` } }
-      )
-      .then(() => {        
-        setUsers(users.map((u) =>
-          u._id === user._id
-            ? { ...u, subscription: { ...u.subscription, type: newPlan } }
-            : u
-        ));
-      })
-      .catch((err) => console.error("Помилка оновлення тарифу:", err));
-  };
   
 
   const handleDeleteUser = (userId) => {
@@ -85,6 +55,34 @@ const AdminPanel = () => {
         .catch((err) => console.error("Помилка видалення користувача:", err));
     }
   };
+
+  const saveUserChanges = (user) => {
+    axios
+      .patch(
+        `${API_BASE}/user/admin/edit/${user._id}`,
+        { role: newRole },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      .then(() => {
+        axios
+          .post(
+            `${API_BASE}/user/admin/set-subscription/${user._id}`,
+            { type: newPlan },
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
+          .then(() => {
+            setUsers(users.map((u) =>
+              u._id === user._id
+                ? { ...u, role: newRole, subscription: { ...u.subscription, type: newPlan } }
+                : u
+            ));
+            setEditingUserId(null);
+          })
+          .catch((err) => console.error("Помилка оновлення тарифу:", err));
+      })
+      .catch((err) => console.error("Помилка оновлення ролі:", err));
+  };
+  
 
   return (
     <div style={{ padding: "20px", backgroundColor: "#1f1f1f", color: "#f0f0f0", minHeight: "100vh" }}>
@@ -113,10 +111,42 @@ const AdminPanel = () => {
               <td style={tdStyle}>{u.role || "—"}</td>
               <td style={tdStyle}>{u.subscription?.type || "free"}</td>
               <td style={tdStyle}>
-                <button style={buttonStyle} onClick={() => handleViewQueries(u._id)}>🔍</button>
-                <button style={editStyle} onClick={() => handleEditUser(u)}>✏️</button>
-                <button style={deleteStyle} onClick={() => handleDeleteUser(u._id)}>🗑️</button>
-              </td>
+                    {editingUserId === u._id ? (
+                        <>
+                        <select value={newRole} onChange={(e) => setNewRole(e.target.value)} style={{ marginLeft: 5, width: "15%", fontSize: 20 }}>
+                            <option value="user">user</option>
+                            <option value="admin">admin</option>
+                        </select>
+                        <select value={newPlan} onChange={(e) => setNewPlan(e.target.value)} style={{ marginLeft: 5, width: "15%", fontSize: 20 }}>
+                            <option value="free">free</option>
+                            <option value="standart">standart</option>
+                            <option value="pro">pro</option>
+                        </select>
+                        <button
+                            style={{ ...editStyle, marginLeft: 5 }}
+                            onClick={() => saveUserChanges(u)}
+                        >
+                            ✅
+                        </button>
+                        <button
+                            style={{ ...deleteStyle, marginLeft: 5 }}
+                            onClick={() => setEditingUserId(null)}
+                        >
+                            ❌
+                        </button>
+                        </>
+                    ) : (
+                        <>
+                        <button style={buttonStyle} onClick={() => handleViewQueries(u._id)}>🔍</button>
+                        <button style={editStyle} onClick={() => {
+                            setEditingUserId(u._id);
+                            setNewRole(u.role || "user");
+                            setNewPlan(u.subscription?.type || "free");
+                        }}>✏️</button>
+                        <button style={deleteStyle} onClick={() => handleDeleteUser(u._id)}>🗑️</button>
+                        </>
+                    )}
+                    </td>
             </tr>
           ))}
         </tbody>
@@ -162,6 +192,7 @@ const buttonStyle = {
   border: "none",
   borderRadius: "4px",
   cursor: "pointer",
+  width: "31%",
 };
 
 const deleteStyle = {
