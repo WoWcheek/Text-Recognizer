@@ -1,6 +1,20 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { Chart } from "react-google-charts";
 import { useNavigate } from "react-router-dom";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip,
+  Legend,
+  ResponsiveContainer, 
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis
+} from "recharts";
+
 
 const API_BASE = process.env.REACT_APP_API_URL;
 
@@ -11,10 +25,36 @@ const AdminPanel = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
   const [editingUserId, setEditingUserId] = useState(null);
-const [newRole, setNewRole] = useState("");
-const [newPlan, setNewPlan] = useState("");
+  const [newRole, setNewRole] = useState("");
+  const [newPlan, setNewPlan] = useState("");
 
+  const tariffData = [
+    { name: "free", value: users.filter((u) => u.subscription?.type === "free").length },
+    { name: "standart", value: users.filter((u) => u.subscription?.type === "standart").length },
+    { name: "pro", value: users.filter((u) => u.subscription?.type === "pro").length },
+  ];
 
+  const tariffChartData = [
+    ["Tariff", "Кількість"],
+    ...tariffData.map((item) => [item.name, item.value])
+  ];
+  
+  const tariffChartOptions = {
+    title: "Розподіл тарифів (3D)",
+    is3D: true,
+    backgroundColor: "#1f1f1f",
+    legendTextStyle: { color: "#fff" },
+    titleTextStyle: { color: "#fff" },
+    pieSliceTextStyle: { color: "#fff" },
+  };
+  
+
+  const roleData = [
+    { name: "admin", value: users.filter((u) => u.role === "admin").length },
+    { name: "user", value: users.filter((u) => u.role === "user").length },
+  ];
+  
+  
   
 
   useEffect(() => {
@@ -38,6 +78,13 @@ const [newPlan, setNewPlan] = useState("");
       .catch((err) => console.error("Помилка запиту:", err));
   };
   
+  const queryStats = users
+      .map((u) => ({
+        name: u.name || u.email,
+        queries: u.queryCount || 0,
+      }))
+      .sort((a, b) => b.queries - a.queries); 
+
   
 
   
@@ -152,6 +199,9 @@ const [newPlan, setNewPlan] = useState("");
         </tbody>
       </table>
 
+      
+
+
       {selectedUser && (
         <div style={{ marginTop: "20px" }}>
           <h3>🔍 Запити користувача: {selectedUser}</h3>
@@ -164,6 +214,51 @@ const [newPlan, setNewPlan] = useState("");
           </ul>
         </div>
       )}
+
+            <div style={{width: "100%", marginTop: "100px"}}>
+              <h1 style={{textAlign: "center", margin: "50px"}}>📈 АНАЛІТИКА</h1>
+            <h3 style={{ marginTop: "40px" }}>📈 Розподіл тарифів (3D)</h3>
+              <div style={{ width: "100%", maxWidth: "800px", margin: "0 auto" }}>
+                <Chart
+                  chartType="PieChart"
+                  width="100%"
+                  height="400px"
+                  data={tariffChartData}
+                  options={tariffChartOptions}
+                />
+              </div>
+
+              <h3 style={{ marginTop: "40px" }}>📊 Розподіл ролей</h3>
+                    <div style={{ width: "100%", height: 200 }}>
+                      <ResponsiveContainer>
+                        <BarChart data={roleData} layout="vertical" margin={{ left: 100 }}>
+                          <XAxis type="number" />
+                          <YAxis dataKey="name" type="category" />
+                          <Tooltip />
+                          <Legend />
+                          <Bar dataKey="value" fill="#00C49F" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    <h3 style={{ marginTop: "40px" }}>📊 Кількість запитів по користувачах</h3>
+                        <div style={{ width: "100%", height: 200 }}>
+                          <ResponsiveContainer>
+                            <BarChart data={queryStats} layout="vertical" margin={{ left: 100 }}>
+                              <XAxis type="number" />
+                              <YAxis dataKey="name" type="category" />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="queries" fill="#8884d8" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+            </div>
+              
+
+
+
+
     </div>
   );
 };

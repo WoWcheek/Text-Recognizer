@@ -452,7 +452,7 @@ const App = () => {
                 <SubscriptionButton onClick={openModal}>
                   Изменить подписку
                 </SubscriptionButton>
-                <Button onClick={handleLogout} style={{backgroundColor: "#dc3545"}}>
+                <Button onClick={handleLogout} style={{backgroundColor: "#dc3545", marginBlockEnd: "20px"}}>
                   Выйти
                 </Button>
 

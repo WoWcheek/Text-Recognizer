@@ -67,9 +67,18 @@ def get_user_queries(user_id: str):
 
 @user_route.get("/admin/users")
 def get_all_users(user_data=Depends(verify_token)):
-    # if user_data.get("role") != "admin":
-    #     raise HTTPException(status_code=403, detail="Доступ заборонено")
-    return list(User.users_collection.find())
+    if user_data.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Доступ заборонено")
+
+    users = list(User.users_collection.find())
+
+    for user in users:
+        user_id = str(user["_id"])
+        query_count = Query.collection.count_documents({"userId": user_id})
+        user["queryCount"] = query_count
+        user["_id"] = user_id  
+
+    return users
 
 
 @user_route.post("/subscription/buy")
