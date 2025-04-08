@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Request, HTTPException
 from utils.get_user import get_current_user
 from bson import ObjectId
 from db.models.User import User
-
+from datetime import datetime
 from db.models.User import User
 from db.models.Query import Query
 from fastapi import Body
@@ -90,15 +90,25 @@ async def buy_subscription(request: Request, user: dict = Depends(get_current_us
         return {
             'error': 'only free/standart/pro'
         }
-    
-    new_data = User.users_collection.update_one({
+
+    start_date = datetime.utcnow().isoformat()
+
+    User.users_collection.update_one({
         'email': user['email']
-    }, {'$set': {
-        'subscription': {
-            'type': _type,
-            'time': -1
+    }, {
+        '$set': {
+            'subscription': {
+                'type': _type,
+                'time': -1,
+                'startDate': start_date
+            }
+        },
+        '$setOnInsert': {
+            'balance': 0  # якщо ще не було
         }
-    }})
+    }, upsert=True)
+
+    return { "status": "subscription updated" }
 
 @user_route.post("/admin/set-subscription/{user_id}")
 async def set_subscription_for_user(user_id: str, request: Request, user: dict = Depends(get_current_user)):
@@ -111,9 +121,16 @@ async def set_subscription_for_user(user_id: str, request: Request, user: dict =
     if _type not in ['free', 'standart', 'pro']:
         return {'error': 'Тариф має бути один з: free, standart, pro'}
 
+    start_date = datetime.utcnow().isoformat()
+
     result = User.users_collection.update_one(
         {'_id': user_id},
-        {'$set': {'subscription': {'type': _type, 'time': -1}}}
+        {'$set': {
+            'subscription.type': _type,
+            'subscription.time': -1,
+            'subscription.startDate': start_date
+        },
+         '$setOnInsert': { 'balance': 0 }}
     )
 
     return {"status": "success", "modified_count": result.modified_count}
