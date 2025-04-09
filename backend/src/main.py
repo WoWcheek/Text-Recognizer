@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from fastapi.openapi.utils import get_openapi
 from utils.get_user import verify_token
 
+from routes.monobank_route import monobank
 
 from routes.user_route import user_route
 from routes.image_route import image_route
@@ -63,6 +64,8 @@ def custom_openapi():
     return app.openapi_schema
 
 app.openapi = custom_openapi
+
+app.include_router(monobank)
 
 oauth = OAuth()
 oauth.register(

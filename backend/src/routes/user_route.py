@@ -7,6 +7,10 @@ from db.models.User import User
 from db.models.Query import Query
 from fastapi import Body
 from utils.get_user import verify_token
+import uuid
+import requests
+from config import config
+
 
 user_route = APIRouter()
 
@@ -83,32 +87,60 @@ def get_all_users(user_data=Depends(verify_token)):
 
 @user_route.post("/subscription/buy")
 async def buy_subscription(request: Request, user: dict = Depends(get_current_user)):
+   
+
     data = await request.json()
     _type = data.get("type")
 
     if _type not in ['free', 'standart', 'pro']:
-        return {
-            'error': 'only free/standart/pro'
+        return {'error': 'only free/standart/pro'}
+
+    price_map = {
+        'standart': 1.00,
+        'pro': 5.00
+    }
+    amount = int(price_map.get(_type, 0) * 100)
+
+    # Створення інвойсу для імітації
+    response = requests.post(
+        "https://api.monobank.ua/api/merchant/invoice/create",
+        headers={"X-Token": config["MONOBANK_PERSONAL_TOKEN"]},
+        json={
+            "invoiceId": str(uuid.uuid4()),
+            "amount": amount,
+            "ccy": 980,
+            "redirectUrl": "http://localhost:3000/payment/success",
+            "validity": 3600,
+            "destination": f"Оплата тарифу {_type}"
         }
+    )
 
+    # Одразу оновлюємо підписку, не чекаючи підтвердження
     start_date = datetime.utcnow().isoformat()
-
-    User.users_collection.update_one({
-        'email': user['email']
-    }, {
-        '$set': {
-            'subscription': {
-                'type': _type,
-                'time': -1,
-                'startDate': start_date
+    User.users_collection.update_one(
+        {'email': user['email']},
+        {
+            '$set': {
+                'subscription': {
+                    'type': _type,
+                    'time': -1,
+                    'startDate': start_date
+                },
+                'balance': 0 
             }
         },
-        '$setOnInsert': {
-            'balance': 0  # якщо ще не було
-        }
-    }, upsert=True)
+        upsert=True
+    )
 
-    return { "status": "subscription updated" }
+    if response.status_code == 200:
+        invoice_url = response.json().get("pageUrl")
+        return {"invoiceUrl": invoice_url}
+
+    return {"error": "Не вдалося створити інвойс Monobank"}
+
+
+
+
 
 @user_route.post("/admin/set-subscription/{user_id}")
 async def set_subscription_for_user(user_id: str, request: Request, user: dict = Depends(get_current_user)):

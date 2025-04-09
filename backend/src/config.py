@@ -1,7 +1,16 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 config = {
-    'mongodb_url': 'mongodb+srv://admin:1BvuBGWQJ6QEeynr@cluster0.d5sr9ci.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0',
-    'GOOGLE_CLIENT_SECRET': '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',
-    'REDIRECT_URI': 'http://localhost/auth/google/callback',
-     'GOOGLE_CLIENT_ID': '961063446564-a0slovifov390psf6c9u0crtnq2csiv3.apps.googleusercontent.com',
-     'SECRET': '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',
+    'mongodb_url': os.getenv('MONGODB_URL'),
+    'GOOGLE_CLIENT_SECRET': os.getenv('GOOGLE_CLIENT_SECRET'),
+    'REDIRECT_URI': os.getenv('REDIRECT_URI'),
+    'GOOGLE_CLIENT_ID': os.getenv('GOOGLE_CLIENT_ID'),
+    'SECRET': os.getenv('SECRET'),
+
+    # Monobank Personal API
+    'MONOBANK_PERSONAL_TOKEN': os.getenv('MONOBANK_PERSONAL_TOKEN'),
+    'MONOBANK_ACCOUNT_ID': os.getenv('MONOBANK_ACCOUNT_ID'),
 }

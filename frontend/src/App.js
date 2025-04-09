@@ -4,6 +4,7 @@ import axios from "axios";
 import Modal from "react-modal";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import AdminPanel from "./components/AdminPanel";
+import PaymentSuccess from "./components/PaymentSuccess";
 import { useNavigate } from "react-router-dom"
 import AdminAccessButton from "./components/AdminAccessButton";
 
@@ -309,6 +310,16 @@ const App = () => {
     }
   }, []);
   
+  useEffect(() => {
+    window.addEventListener("message", (e) => {
+      if (e.data?.type === "subscriptionPaid") {
+        const token = localStorage.getItem("token");
+        fetchSubscriptionInfo(token);
+        fetchUserInfo(token);
+        alert("Підписка оновлена!");
+      }
+    });
+  }, []);
   
 
   const fetchUserInfo = async (token) => {
@@ -401,24 +412,55 @@ const App = () => {
   
     try {
       const token = localStorage.getItem("token");
-      await axios.post(
-        `${API_BASE}/user/subscription/buy`,
+  
+      if (selectedPlan === "free") {
+        // Якщо тариф безкоштовний — просто оновлюємо підписку
+        await axios.post(
+          `${process.env.REACT_APP_API_URL}/user/subscription/buy`,
+          { type: selectedPlan },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+  
+        setSubscription("free");
+        alert("Безкоштовна підписка активована!");
+        fetchSubscriptionInfo(token);
+        fetchUserInfo(token);
+        closeModal();
+        return;
+      }
+  
+      // Платні тарифи — відкриваємо інвойс Monobank
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_URL}/user/subscription/buy`,
         { type: selectedPlan },
         {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
       );
-      alert("Подписка успешно обновлена!");
   
-      fetchSubscriptionInfo(token); 
+      if (res.data.invoiceUrl) {
+        window.open(res.data.invoiceUrl, "_blank", "noopener");
+        alert("Вас перенаправлено до оплати в Monobank.");
+      } else {
+        alert("Помилка: не отримано посилання на оплату");
+      }
+  
+      // Опціонально оновлюємо дані
+      fetchSubscriptionInfo(token);
       fetchUserInfo(token);
-      closeModal();                 
-  
+      closeModal();
     } catch (error) {
-      console.error("Ошибка при покупке подписки:", error);
+      console.error("Помилка при покупці підписки:", error);
       alert("Произошла ошибка при покупке подписки");
     }
   };
+  
   
   return (
     <Router>
@@ -535,6 +577,7 @@ const App = () => {
       </Container>
     } />
     <Route path="/admin" element={<AdminPanel />} />
+    <Route path="/payment/success" element={<PaymentSuccess />} />
       </Routes>
     </Router>
     
