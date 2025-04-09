@@ -3,9 +3,6 @@ import axios from "axios";
 import { Chart } from "react-google-charts";
 import { useNavigate } from "react-router-dom";
 import {
-  PieChart,
-  Pie,
-  Cell,
   Tooltip,
   Legend,
   ResponsiveContainer, 

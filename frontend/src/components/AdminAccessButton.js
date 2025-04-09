@@ -4,22 +4,23 @@ import { useNavigate } from "react-router-dom";
 const AdminAccessButton = ({ user }) => {
   const navigate = useNavigate();
 
-  const allowedRoles = ["admin", "user"]; // потом убрать user
-  console.log("ROLE:", user?.role);
-
-  //if (!allowedRoles.includes(user.role)) return null;
+  const isAdmin = user?.role === "admin";
 
   return (
     <button
-      onClick={() => navigate("/admin")}
+      onClick={() => {
+        if (isAdmin) navigate("/admin");
+      }}
+      disabled={!isAdmin}
       style={{
         background: "transparent",
         border: "none",
         fontSize: "20px",
         marginLeft: "10px",
-        cursor: "pointer"
+        cursor: isAdmin ? "pointer" : "not-allowed",
+        opacity: isAdmin ? 1 : 0.4,
       }}
-      title="AdminPanel"
+      title={isAdmin ? "AdminPanel" : "Тільки для адміністратора"}
     >
       ⚡
     </button>

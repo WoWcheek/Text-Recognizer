@@ -1,6 +1,6 @@
-from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Body, Request, HTTPException
 from utils.get_user import get_current_user
-from bson import ObjectId
+from passlib.hash import bcrypt
 from db.models.User import User
 from datetime import datetime
 from db.models.User import User
@@ -10,9 +10,59 @@ from utils.get_user import verify_token
 import uuid
 import requests
 from config import config
+from datetime import datetime, timedelta
+import jwt
 
 
 user_route = APIRouter()
+
+@user_route.post("/auth/register")
+def register_user(data: dict = Body(...)):
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password required")
+
+    if User.users_collection.find_one({'email': email}):
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    hashed_password = bcrypt.hash(password)
+    new_user = {
+        "_id": email,
+        "email": email,
+        "password": hashed_password,
+        "name": email.split("@")[0],
+        "role": "user",
+        "subscription": {
+            "type": "free",
+            "time": -1,
+            "startDate": datetime.utcnow().isoformat()
+        },
+        "limits": {
+            "count": 0,
+            "time": -1
+        }
+    }
+
+    User.create(new_user)
+    token = jwt.encode({"sub": email, "name": new_user["name"], "exp": datetime.utcnow() + timedelta(hours=1)}, config['SECRET'], algorithm="HS256")
+    return {"token": token}
+
+@user_route.post("/auth/login")
+def login_user(data: dict = Body(...)):
+    email = data.get("email")
+    password = data.get("password")
+
+    if not email or not password:
+        raise HTTPException(status_code=400, detail="Email and password required")
+
+    user = User.users_collection.find_one({"email": email})
+    if not user or not bcrypt.verify(password, user.get("password", "")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    token = jwt.encode({"sub": email, "name": user.get("name", ""), "exp": datetime.utcnow() + timedelta(hours=1)}, config['SECRET'], algorithm="HS256")
+    return {"token": token}
 
 
 @user_route.get("/me")
