@@ -15,6 +15,20 @@ import {
 
 const API_BASE = process.env.REACT_APP_API_URL;
 
+const formatDateTime = (isoString) => {
+  if (!isoString) return "—";
+  const date = new Date(isoString);
+  return date.toLocaleString("uk-UA", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+};
+
+
+
 const AdminPanel = () => {
   const [users, setUsers] = useState([]);
   const [queries, setQueries] = useState([]);
@@ -220,18 +234,60 @@ const AdminPanel = () => {
       </table>
 
       
-      {selectedUser && (
-        <div style={{ marginTop: "20px" }}>
-          <h3>🔍 Запити користувача: {selectedUser}</h3>
-          <ul>
-            {queries.map((q) => (
-              <li key={q._id}>
-                🖼 <b>Text:</b> {q.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {selectedUser && (() => {
+          const userInfo = users.find(u => u._id === selectedUser);
+          const planLimits = {
+            free: 3,
+            standart: 7,
+            pro: "∞"
+          };
+          const startDate = userInfo.subscription?.startDate;
+          let nextBillingDate = "—";
+
+          if (startDate && ["standart", "pro"].includes(userInfo.subscription?.type)) {
+            const nextDate = new Date(startDate);
+            nextDate.setDate(nextDate.getDate() + 30);
+            nextBillingDate = formatDateTime(nextDate.toISOString());
+          }
+
+          
+          if (!userInfo) return null;
+
+          return (
+            <div style={{
+              marginTop: "40px",
+              padding: "20px",
+              border: "1px solid #444",
+              backgroundColor: "#2c2c2c",
+              borderRadius: "10px"
+            }}>
+              <h3 style={{ marginBottom: "15px", color: "#ffa500" }}>👤 Інформація про користувача</h3>
+              <p><b>📧 Email:</b> {userInfo.email}</p>
+              <p><b>👤 Ім’я:</b> {userInfo.name}</p>
+              <p><b>🛡 Роль:</b> {userInfo.role}</p>
+              <p><b>💼 Тариф:</b> {userInfo.subscription?.type || "free"}</p>
+              <p><b>🕓 Дата покупки тарифу:</b> {formatDateTime(startDate)}</p>
+              <p><b>📅 Дата початку:</b> {formatDateTime(startDate)}</p>
+              <p><b>💳 Наступне списання:</b> {nextBillingDate}</p>
+              <p><b>📊 Ліміт запитів:</b> {planLimits[userInfo.subscription?.type] ?? "—"}</p>
+              <p><b>📊 Використано запитів:</b> {userInfo.limits?.count ?? 0} / {planLimits[userInfo.subscription?.type] ?? "—"}</p>
+              {userInfo.balance !== undefined && (
+                <p><b>💰 Баланс:</b> {userInfo.balance} ₴</p>
+              )}
+              <p><b>📨 Кількість запитів:</b> {userInfo.queryCount}</p>
+
+              <h4 style={{ marginTop: "30px" }}>📄 Запити користувача:</h4>
+              <ul>
+                {queries.map((q) => (
+                  <li key={q._id}>
+                    🖼 <b>Text:</b> {q.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })()}
+
 
             <div style={{width: "100%", marginTop: "100px"}}>
               <h1 style={{textAlign: "center", margin: "50px"}}>📈 АНАЛІТИКА</h1>
@@ -259,18 +315,19 @@ const AdminPanel = () => {
                           </ResponsiveContainer>
                         </div>
 
-                      <h3 style={{ marginTop: "40px" }}>📊 Кількість запитів по користувачах</h3>
-                        <div style={{ width: "100%", height: 200 }}>
-                          <ResponsiveContainer>
-                            <BarChart data={queryStats} layout="vertical" margin={{ left: 100 }}>
-                              <XAxis type="number" />
-                              <YAxis dataKey="name" type="category" />
-                              <Tooltip />
-                              <Legend />
-                              <Bar dataKey="queries" fill="#8884d8" />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
+                      <h3 style={{ marginTop: "20px" }}>📊 Кількість запитів по користувачах</h3>
+                      <div style={{ width: "100%", height: `${queryStats.length * 60}px` }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={queryStats} layout="vertical" margin={{ left: 100 }}>
+                            <XAxis type="number" />
+                            <YAxis dataKey="name" type="category" />
+                            <Tooltip />
+                            <Legend />
+                            <Bar dataKey="queries" fill="#8884d8" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+
             </div>
               
 
