@@ -100,32 +100,43 @@ const AdminPanel = () => {
     }
   };
 
-  const saveUserChanges = (user) => {
-    axios
-      .patch(
+  const saveUserChanges = async (user) => {
+    try {
+      await axios.patch(
         `${API_BASE}/user/admin/edit/${user._id}`,
         { role: newRole },
         { headers: { Authorization: `Bearer ${token}` } }
-      )
-      .then(() => {
-        axios
-          .post(
-            `${API_BASE}/user/admin/set-subscription/${user._id}`,
-            { type: newPlan },
-            { headers: { Authorization: `Bearer ${token}` } }
-          )
-          .then(() => {
-            setUsers(users.map((u) =>
-              u._id === user._id
-                ? { ...u, role: newRole, subscription: { ...u.subscription, type: newPlan } }
-                : u
-            ));
-            setEditingUserId(null);
-          })
-          .catch((err) => console.error("Помилка оновлення тарифу:", err));
-      })
-      .catch((err) => console.error("Помилка оновлення ролі:", err));
+      );
+  
+      await axios.post(
+        `${API_BASE}/user/admin/set-subscription/${user._id}`,
+        { type: newPlan },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await axios.post(
+        `${API_BASE}/user/admin/set-limit/${user._id}`,
+        { count: user.limits?.count || 0 },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setUsers(users.map((u) =>
+        u._id === user._id
+          ? {
+              ...u,
+              role: newRole,
+              subscription: { ...u.subscription, type: newPlan },
+              limits: { ...u.limits, count: user.limits?.count || 0 }
+            }
+          : u
+      ));
+  
+      setEditingUserId(null);
+    } catch (err) {
+      console.error("❌ Помилка при збереженні змін користувача:", err);
+    }
   };
+  
   
 
   return (
@@ -155,41 +166,53 @@ const AdminPanel = () => {
               <td style={tdStyle}>{u.role || "—"}</td>
               <td style={tdStyle}>{u.subscription?.type || "free"}</td>
               <td style={tdStyle}>
-                    {editingUserId === u._id ? (
-                        <>
-                        <select value={newRole} onChange={(e) => setNewRole(e.target.value)} style={{ marginLeft: 5, width: "15%", fontSize: 20 }}>
-                            <option value="user">user</option>
-                            <option value="admin">admin</option>
-                        </select>
-                        <select value={newPlan} onChange={(e) => setNewPlan(e.target.value)} style={{ marginLeft: 5, width: "15%", fontSize: 20 }}>
-                            <option value="free">free</option>
-                            <option value="standart">standart</option>
-                            <option value="pro">pro</option>
-                        </select>
-                        <button
-                            style={{ ...editStyle, marginLeft: 5 }}
-                            onClick={() => saveUserChanges(u)}
-                        >
-                            ✅
-                        </button>
-                        <button
-                            style={{ ...deleteStyle, marginLeft: 5 }}
-                            onClick={() => setEditingUserId(null)}
-                        >
-                            ❌
-                        </button>
-                        </>
-                    ) : (
-                        <>
-                        <button style={buttonStyle} onClick={() => handleViewQueries(u._id)}>🔍</button>
-                        <button style={editStyle} onClick={() => {
-                            setEditingUserId(u._id);
-                            setNewRole(u.role || "user");
-                            setNewPlan(u.subscription?.type || "free");
-                        }}>✏️</button>
-                        <button style={deleteStyle} onClick={() => handleDeleteUser(u._id)}>🗑️</button>
-                        </>
-                    )}
+              {editingUserId === u._id ? (
+                <>
+                  <div style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: "10px",
+                    marginBottom: "8px"
+                  }}>
+                    <select value={newRole} onChange={(e) => setNewRole(e.target.value)} style={{ fontSize: 16, width: "120px" }}>
+                      <option value="user">user</option>
+                      <option value="admin">admin</option>
+                    </select>
+                    <select value={newPlan} onChange={(e) => setNewPlan(e.target.value)} style={{ fontSize: 16, width: "130px" }}>
+                      <option value="free">free</option>
+                      <option value="standart">standart</option>
+                      <option value="pro">pro</option>
+                    </select>
+                    <input
+                      type="number"
+                      placeholder="count"
+                      value={u.limits?.count || 0}
+                      onChange={(e) => {
+                        const updated = parseInt(e.target.value);
+                        setUsers(users.map((user) =>
+                          user._id === u._id ? { ...user, limits: { ...user.limits, count: updated } } : user
+                        ));
+                      }}
+                      style={{ width: "80px", fontSize: 16 }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "center", gap: "10px" }}>
+                    <button style={editStyle} onClick={() => saveUserChanges(u)}>✅</button>
+                    <button style={deleteStyle} onClick={() => setEditingUserId(null)}>❌</button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <button style={buttonStyle} onClick={() => handleViewQueries(u._id)}>🔍</button>
+                  <button style={editStyle} onClick={() => {
+                    setEditingUserId(u._id);
+                    setNewRole(u.role || "user");
+                    setNewPlan(u.subscription?.type || "free");
+                  }}>✏️</button>
+                  <button style={deleteStyle} onClick={() => handleDeleteUser(u._id)}>🗑️</button>
+                </>
+              )}
+
                     </td>
             </tr>
           ))}
@@ -197,8 +220,6 @@ const AdminPanel = () => {
       </table>
 
       
-
-
       {selectedUser && (
         <div style={{ marginTop: "20px" }}>
           <h3>🔍 Запити користувача: {selectedUser}</h3>
@@ -214,31 +235,31 @@ const AdminPanel = () => {
 
             <div style={{width: "100%", marginTop: "100px"}}>
               <h1 style={{textAlign: "center", margin: "50px"}}>📈 АНАЛІТИКА</h1>
-            <h3 style={{ marginTop: "40px" }}>📈 Розподіл тарифів (3D)</h3>
-              <div style={{ width: "100%", maxWidth: "800px", margin: "0 auto" }}>
-                <Chart
-                  chartType="PieChart"
-                  width="100%"
-                  height="400px"
-                  data={tariffChartData}
-                  options={tariffChartOptions}
-                />
-              </div>
+                      <h3 style={{ marginTop: "40px" }}>📈 Розподіл тарифів (3D)</h3>
+                        <div style={{ width: "100%", maxWidth: "800px", margin: "0 auto" }}>
+                          <Chart
+                            chartType="PieChart"
+                            width="100%"
+                            height="400px"
+                            data={tariffChartData}
+                            options={tariffChartOptions}
+                          />
+                        </div>
 
-              <h3 style={{ marginTop: "40px" }}>📊 Розподіл ролей</h3>
-                    <div style={{ width: "100%", height: 200 }}>
-                      <ResponsiveContainer>
-                        <BarChart data={roleData} layout="vertical" margin={{ left: 100 }}>
-                          <XAxis type="number" />
-                          <YAxis dataKey="name" type="category" />
-                          <Tooltip />
-                          <Legend />
-                          <Bar dataKey="value" fill="#00C49F" />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    </div>
+                      <h3 style={{ marginTop: "40px" }}>📊 Розподіл ролей</h3>
+                        <div style={{ width: "100%", height: 200 }}>
+                          <ResponsiveContainer>
+                            <BarChart data={roleData} layout="vertical" margin={{ left: 100 }}>
+                              <XAxis type="number" />
+                              <YAxis dataKey="name" type="category" />
+                              <Tooltip />
+                              <Legend />
+                              <Bar dataKey="value" fill="#00C49F" />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
 
-                    <h3 style={{ marginTop: "40px" }}>📊 Кількість запитів по користувачах</h3>
+                      <h3 style={{ marginTop: "40px" }}>📊 Кількість запитів по користувачах</h3>
                         <div style={{ width: "100%", height: 200 }}>
                           <ResponsiveContainer>
                             <BarChart data={queryStats} layout="vertical" margin={{ left: 100 }}>

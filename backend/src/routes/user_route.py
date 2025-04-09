@@ -103,12 +103,37 @@ def create_query_by_user(data: dict = Body(...), user=Depends(get_current_user))
         raise HTTPException(status_code=400, detail="Image and text are required")
 
     user_id = str(user["_id"])
+    email = user["email"]
 
-    return Query.create({
+    db_user = User.users_collection.find_one({"email": email})
+    subscription = db_user.get("subscription", {})
+    limits = db_user.get("limits", {})
+
+    sub_type = subscription.get("type", "free")
+    count = limits.get("count", 0)
+
+    max_requests = {
+        "free": 3,
+        "standart": 7,
+        "pro": float("inf")
+    }
+
+    if count >= max_requests.get(sub_type, 3):
+        raise HTTPException(status_code=403, detail=f"Досягнуто ліміту запитів для тарифу '{sub_type}'")
+
+    result = Query.create({
         "userId": user_id,
         "image": image,
         "text": text
     })
+
+    User.users_collection.update_one(
+        {"email": email},
+        {"$inc": {"limits.count": 1}}
+    )
+
+    return result
+
 
 @user_route.get("/admin/queries")
 def get_all_queries():
@@ -247,4 +272,22 @@ async def update_user_role(user_id: str, data: dict):
     return {
         "ok": True
     }
+
+@user_route.post("/admin/set-limit/{user_id}")
+def set_limit_for_user(user_id: str, data: dict = Body(...), user: dict = Depends(get_current_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Доступ заборонено")
+
+    count = data.get("count")
+
+    if count is None or not isinstance(count, int) or count < 0:
+        raise HTTPException(status_code=400, detail="Некоректне значення count")
+
+    result = User.users_collection.update_one(
+        {"_id": user_id},
+        {"$set": {"limits.count": count}}
+    )
+
+    return {"status": "updated", "modified_count": result.modified_count}
+
 
