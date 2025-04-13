@@ -196,6 +196,7 @@ const AdminPanel = () => {
                       <option value="free">free</option>
                       <option value="standart">standart</option>
                       <option value="pro">pro</option>
+                      <option value="review">review</option>
                     </select>
                     <input
                       type="number"

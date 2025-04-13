@@ -113,9 +113,10 @@ def create_query_by_user(data: dict = Body(...), user=Depends(get_current_user))
     count = limits.get("count", 0)
 
     max_requests = {
-        "free": 3,
-        "standart": 7,
-        "pro": float("inf")
+        "free": 5,
+        "standart": 20,
+        "pro": float("inf"),
+        "review": 10
     }
 
     if count >= max_requests.get(sub_type, 3):
@@ -167,12 +168,13 @@ async def buy_subscription(request: Request, user: dict = Depends(get_current_us
     data = await request.json()
     _type = data.get("type")
 
-    if _type not in ['free', 'standart', 'pro']:
-        return {'error': 'only free/standart/pro'}
+    if _type not in ['free', 'standart', 'pro', 'review']:
+        return {'error': 'only free/standart/pro/review'}
 
     price_map = {
         'standart': 1.00,
-        'pro': 5.00
+        'pro': 5.00,
+        'review': 20.00
     }
     amount = int(price_map.get(_type, 0) * 100)
 
@@ -225,8 +227,8 @@ async def set_subscription_for_user(user_id: str, request: Request, user: dict =
     data = await request.json()
     _type = data.get("type")
 
-    if _type not in ['free', 'standart', 'pro']:
-        return {'error': 'Тариф має бути один з: free, standart, pro'}
+    if _type not in ['free', 'standart', 'pro', 'review']:
+        return {'error': 'Тариф має бути один з: free, standart, pro, review'}
 
     start_date = datetime.utcnow().isoformat()
 
