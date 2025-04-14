@@ -357,6 +357,8 @@ const App = () => {
   const [preview, setPreview] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
   const [decodedText, setDecodedText] = useState("");
+  const [sentiment, setSentiment] = useState(null);
+  const [isReview, setIsReview] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [handTarget, setHandTarget] = useState("upload"); // "upload" | "recognize"
@@ -565,6 +567,46 @@ const App = () => {
     setDecodedText("");
     setHandTarget("upload");
   };
+
+  const handleReviewAnalysis = async () => {
+    if (!image || !user) return;
+  
+    try {
+      const base64Image = await convertToBase64(image);
+  
+      const response = await axios.post(`${API_BASE}/image/analyze-review`, {
+        image: base64Image,
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+  
+      const data = response.data;
+      setDecodedText(data.decoded_text || "");
+      setIsReview(data.is_review || false);
+      setSentiment(data.sentiment || null);
+      setHandTarget("upload");
+  
+      alert("Аналіз завершено!");
+  
+    } catch (error) {
+      console.error("Помилка при аналізі відгуку:", error);
+      alert("Не вдалося виконати аналіз.");
+      setSentiment(null);
+      setIsReview(false);
+    }
+  };
+  
+  const translateSentiment = (sentiment) => {
+    switch (sentiment) {
+      case "Positive": return "😊 Позитивний";
+      case "Neutral": return "😐 Нейтральний";
+      case "Negative": return "😞 Негативний";
+      default: return "🤔 Невідомо";
+    }
+  };
   
 
   const handlePurchase = async () => {
@@ -677,7 +719,7 @@ const App = () => {
                           setImage(file);
                           setPreview(URL.createObjectURL(file));
                           setDecodedText("");
-                          setHandTarget("recognize"); // 👉 Рука одразу переходить до кнопки "Розпізнати текст"
+                          setHandTarget("recognize");
                         }
                       }}
                       disabled={isUploading}
@@ -695,11 +737,12 @@ const App = () => {
                         <RecognizeRow>
                           {handTarget === "review" && <HandPointer>👉</HandPointer>}
                           <Button
-                            onClick={() => alert("Функція аналізу відгуку ще в розробці")}
+                            onClick={handleReviewAnalysis}
                             style={{ backgroundColor: "#6c63ff" }}
                           >
                             Отримати оцінку відгуку
                           </Button>
+
                         </RecognizeRow>
                       )}
 
@@ -716,8 +759,18 @@ const App = () => {
                       <SmallButton onClick={handleRetry}>🔄 Спробувати ще раз</SmallButton>
                       <SmallButton onClick={handleNextAttempt}>➡️ Наступна спроба</SmallButton>
                     </ResultActions>
-                  </DecodedText>                  
+                  </DecodedText>      
+                              
                   )}
+                  {isReview && sentiment && (
+                    <DecodedText>
+                      <strong>Оцінка настрою відгуку:</strong>
+                      <div style={{ fontSize: "20px", fontWeight: "bold" }}>
+                        {translateSentiment(sentiment)}
+                      </div>
+                    </DecodedText>
+                  )}
+
                 </>
               )}
             </CardContent>

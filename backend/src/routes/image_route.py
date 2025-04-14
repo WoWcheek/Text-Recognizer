@@ -5,7 +5,12 @@ import base64
 from PIL import Image
 from io import BytesIO
 from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import FastAPI, HTTPException, APIRouter, Request
+
+import requests
+from config import config
+from db.models.User import User
+
 
 from db.models.User import User
 
@@ -48,7 +53,7 @@ def decode_text_from_base64(base64_string: str) -> str:
 
 @image_route.post("/read-from-image")
 def read_from_image(request: ImageRequest, user: dict = Depends(get_current_user)):
-    userData = user  # вже з бази, не треба повторно шукати
+    userData = user 
 
     limits = userData['limits']
     subscription_type = userData['subscription']['type']
@@ -81,9 +86,8 @@ def read_from_image(request: ImageRequest, user: dict = Depends(get_current_user
             }, {'$inc': {
                 'limits.count': 1
             }})
-
-
-                    
+            
+    
 
 
     base_64_parts = request.image.split("base64,")
@@ -100,3 +104,45 @@ def read_from_image(request: ImageRequest, user: dict = Depends(get_current_user
     print("📦 Text:", repr(text))  
 
     return {"decoded_text": text}
+
+@image_route.post("/image/analyze-review")
+async def analyze_review(request: Request, user=Depends(get_current_user)):
+    data = await request.json()
+    image = data.get("image")
+
+    if not image:
+        raise HTTPException(status_code=400, detail="Image is required")
+
+    email = user["email"]
+    user_data = User.users_collection.find_one({'email': email})
+    subscription = user_data.get("subscription", {})
+    sub_type = subscription.get("type", "free")
+
+    if sub_type != "review":
+        raise HTTPException(status_code=403, detail="Цей функціонал доступний лише для тарифу 'review'")
+
+    try:
+        ocr_response = requests.post("http://localhost/read-from-image", json={"image": image})
+        if ocr_response.status_code != 200:
+            raise HTTPException(status_code=500, detail="Не вдалося розпізнати текст з зображення")
+        decoded_text = ocr_response.json().get("decoded_text", "")
+
+        sentiment_response = requests.post(
+            "http://localhost/sentiment-analysis/single",
+            json={"review": decoded_text, "language": "ru"} 
+        )
+
+        if sentiment_response.status_code != 200:
+            raise HTTPException(status_code=500, detail="Не вдалося проаналізувати тональність")
+
+        sentiment_data = sentiment_response.json()
+
+        return {
+            "decoded_text": decoded_text,
+            "is_review": True,  
+            "sentiment": sentiment_data.get("tonality", "невідомо")
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Помилка при надсиланні до AI: {str(e)}")
+

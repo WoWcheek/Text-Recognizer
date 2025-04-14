@@ -192,7 +192,6 @@ async def buy_subscription(request: Request, user: dict = Depends(get_current_us
         }
     )
 
-    # Одразу оновлюємо підписку, не чекаючи підтвердження
     start_date = datetime.utcnow().isoformat()
     User.users_collection.update_one(
         {'email': user['email']},
