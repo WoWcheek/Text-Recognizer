@@ -28,8 +28,12 @@ PLANS = {
     },
     'pro': {
         'limits': -1,
+    },
+    'review': {
+        'limits': 10  
     }
 }
+
 
 def decode_text_from_base64(base64_string: str) -> str:
     try:
