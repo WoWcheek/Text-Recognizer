@@ -4,3 +4,4 @@
 *.gif
 __pycache__
 .env
+venv
