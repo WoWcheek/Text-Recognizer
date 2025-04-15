@@ -21,7 +21,7 @@ const Container = styled.div`
   background-color: #121212;
   padding: 20px;
   text-align: center;
-  @media (max-width: 400px) {
+  @media (max-width: 800px) {
     padding: 15px;
   }
 `;
@@ -41,7 +41,7 @@ const UploadForm = styled.form`
   flex-direction: column;
   align-items: center;
   gap: 15px;
-  width: 70%;
+  width: 90%;
 
 `;
 
@@ -154,7 +154,7 @@ const Card = styled.div`
   align-items: center;
   padding: 30px;
   width: 100%;
-  max-width: 800px;
+  max-width: 1200px;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
   border: 1px solid #2a2a2a;
   transition: all 0.3s ease;
@@ -363,6 +363,11 @@ const App = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [handTarget, setHandTarget] = useState("upload"); // "upload" | "recognize"
   const location = useLocation();
+  const [translatedText, setTranslatedText] = useState("");
+  const [languages, setLanguages] = useState([]);
+  const [selectedLang, setSelectedLang] = useState("uk");
+
+  
 
 
   const API_BASE = process.env.REACT_APP_API_URL;
@@ -463,6 +468,28 @@ const App = () => {
     }
   }, [subscription, preview, decodedText]);
   
+  useEffect(() => {
+    axios.get(`${API_BASE}/translate/languages`)
+      .then(res => {
+        const langs = res.data.languages || {};
+        setLanguages(Object.entries(langs)); // [["english", "en"], ...]
+      })
+      .catch(err => console.error("Помилка при завантаженні мов:", err));
+  }, []);
+
+  const handleTranslate = async () => {
+    try {
+      const res = await axios.post(`${API_BASE}/translate`, {
+        text: decodedText,
+        to: selectedLang,
+      });
+      setTranslatedText(res.data.translated_text);
+    } catch (error) {
+      console.error("Помилка при перекладі:", error);
+      alert("Не вдалося перекласти текст");
+    }
+  };
+  
 
   const fetchUserInfo = async (token) => {
     try {
@@ -530,9 +557,14 @@ const App = () => {
       alert("Изображение успешно загружено!");
     } catch (error) {
       console.error("Ошибка загрузки:", error);
-      alert("Ошибка при загрузке изображения");
+      if (error.response?.status === 429) {
+        alert("Перевищено ліміт запитів для вашого тарифу.");
+      } else {
+        alert("Помилка при розпізнаванні зображення");
+      }
       setDecodedText("");
-    } finally {
+    }
+    finally {
       setIsUploading(false);
     }
   };
@@ -571,6 +603,7 @@ const App = () => {
   const handleReviewAnalysis = async () => {
     if (!image || !user) return;
   
+    setIsUploading(true);
     try {
       const base64Image = await convertToBase64(image);
   
@@ -584,29 +617,41 @@ const App = () => {
       });
   
       const data = response.data;
-      setDecodedText(data.decoded_text || "");
-      setIsReview(data.is_review || false);
-      setSentiment(data.sentiment || null);
-      setHandTarget("upload");
   
-      alert("Аналіз завершено!");
+      if (data) {
+        setDecodedText(data.decoded_text || "");
+        setIsReview(data.is_review || false);
+        setSentiment(data.sentiment || null);
+        setHandTarget("upload");
+        alert("Аналіз завершено!");
+      } else {
+        alert("Відповідь сервера порожня.");
+      }
   
     } catch (error) {
       console.error("Помилка при аналізі відгуку:", error);
-      alert("Не вдалося виконати аналіз.");
+      if (error.response?.status === 403) {
+        alert("Функція доступна лише для тарифу Review.");
+      } else {
+        alert("Не вдалося виконати аналіз.");
+      }
       setSentiment(null);
       setIsReview(false);
+    } finally {
+      setIsUploading(false);
     }
   };
   
+  
   const translateSentiment = (sentiment) => {
-    switch (sentiment) {
-      case "Positive": return "😊 Позитивний";
-      case "Neutral": return "😐 Нейтральний";
-      case "Negative": return "😞 Негативний";
+    switch (sentiment?.toUpperCase()) {
+      case "POSITIVE": return "😊 Позитивний";
+      case "NEUTRAL": return "😐 Нейтральний";
+      case "NEGATIVE": return "😞 Негативний";
       default: return "🤔 Невідомо";
     }
   };
+  
   
 
   const handlePurchase = async () => {
@@ -725,26 +770,29 @@ const App = () => {
                       disabled={isUploading}
                     />
 
-
-                      <RecognizeRow>
-                        {handTarget === "recognize" && <HandPointer>👉</HandPointer>}
-                        <Button type="submit" disabled={isUploading}>
-                          Розпізнати текст
-                        </Button>
-                      </RecognizeRow>
-
-                      {subscription?.type === "review" && (
                         <RecognizeRow>
-                          {handTarget === "review" && <HandPointer>👉</HandPointer>}
+                          {handTarget === "recognize" && <HandPointer>👉</HandPointer>}
                           <Button
-                            onClick={handleReviewAnalysis}
-                            style={{ backgroundColor: "#6c63ff" }}
+                            onClick={handleUpload}
+                            disabled={isUploading || !image}
                           >
-                            Отримати оцінку відгуку
+                            Розпізнати текст
                           </Button>
-
                         </RecognizeRow>
-                      )}
+
+                        {subscription?.type === "review" && (
+                          <RecognizeRow>
+                            {handTarget === "review" && <HandPointer>👉</HandPointer>}
+                            <Button
+                              onClick={handleReviewAnalysis}
+                              disabled={!image}
+                              style={{ backgroundColor: "#6c63ff", color: "white" }}
+                            >
+                              Отримати оцінку відгуку
+                            </Button>
+                          </RecognizeRow>
+                        )}
+
 
 
                   </UploadForm>
@@ -759,6 +807,32 @@ const App = () => {
                       <SmallButton onClick={handleRetry}>🔄 Спробувати ще раз</SmallButton>
                       <SmallButton onClick={handleNextAttempt}>➡️ Наступна спроба</SmallButton>
                     </ResultActions>
+
+                    {languages.length > 0 && (
+                        <>
+                          <div style={{ marginTop: "20px" }}>
+                            <label style={{ color: "#ccc", marginRight: "10px" }}>Перекласти на:</label>
+                            <select
+                              value={selectedLang}
+                              onChange={(e) => setSelectedLang(e.target.value)}
+                              style={{
+                                padding: "8px", borderRadius: "8px", fontSize: "16px"
+                              }}
+                            >
+                              {languages.map(([name, code]) => (
+                                <option key={code} value={code}>{name}</option>
+                              ))}
+                            </select>
+                            <SmallButton onClick={handleTranslate}>🌍 Перекласти</SmallButton>
+                          </div>
+                          {translatedText && (
+                            <div style={{ marginTop: "15px", color: "#66ffcc" }}>
+                              <strong>Перекладений текст:</strong>
+                              <div>{translatedText}</div>
+                            </div>
+                          )}
+                        </>
+                      )}
                   </DecodedText>      
                               
                   )}

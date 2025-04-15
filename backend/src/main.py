@@ -5,7 +5,7 @@ import random
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-
+from utils.sentiment import analyze_sentiment, SingleReviewRequest, ManyReviewsRequest
 from db.models.User import User 
 
 from authlib.integrations.starlette_client import OAuth
@@ -13,7 +13,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
 from fastapi.openapi.utils import get_openapi
 from utils.get_user import verify_token
-
+from routes.translate_route import translate_route
 from routes.monobank_route import monobank
 
 from routes.user_route import user_route
@@ -40,6 +40,8 @@ app.add_middleware(
 
 app.include_router(user_route, prefix="/user", tags=["Users"])
 app.include_router(image_route, prefix="/image")
+
+app.include_router(translate_route)
 
 def custom_openapi():
     if app.openapi_schema:
@@ -140,7 +142,25 @@ async def auth_callback(request: Request):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+@app.post("/sentiment-analysis/single")
+async def analyze_review(request: SingleReviewRequest):
+    try:
+        sentiment = await analyze_sentiment(request.review, request.language)
+        return {"tonality": sentiment}
+    except Exception as ex:
+        raise HTTPException(status_code=400, detail=str(ex))
 
+
+@app.post("/sentiment-analysis/many")
+async def analyze_review(request: ManyReviewsRequest):
+    sentiments_list = []
+    for review in request.reviews:
+        try:
+            sentiment = await analyze_sentiment(review)
+            sentiments_list.append(sentiment)
+        except:
+            sentiments_list.append(None)
+    return {"tonality": sentiments_list}
 
 
 if __name__ == "__main__":
