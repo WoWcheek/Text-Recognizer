@@ -7,28 +7,24 @@ from deep_translator import GoogleTranslator
 
 class SingleReviewRequest(BaseModel):
     review: str
-    language: str = "en"
 
 class ManyReviewsRequest(BaseModel):
     reviews: List[str]
-    language: str = "en"
 
 analyzer = SentimentIntensityAnalyzer()
 
-async def analyze_sentiment(text: str, language: str = "en") -> str:
+async def analyze_sentiment(text: str) -> str:
     try:
-        if language.lower() == "ru":
-            translated = GoogleTranslator(source='auto', target='en').translate(text)
-            text = translated
-
+        translated = GoogleTranslator(source='auto', target='en').translate(text)
+        text = translated
 
         score = analyzer.polarity_scores(text)
 
         if score["compound"] >= 0.05:
-            return "Позитивний"
+            return "POSITIVE"
         elif score["compound"] <= -0.05:
-            return "Негативний"
+            return "NEGATIVE"
         else:
-            return "Нейтральний"
+            return "NEUTRAL"
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

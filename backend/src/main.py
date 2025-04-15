@@ -145,7 +145,7 @@ async def auth_callback(request: Request):
 @app.post("/sentiment-analysis/single")
 async def analyze_review(request: SingleReviewRequest):
     try:
-        sentiment = await analyze_sentiment(request.review, request.language)
+        sentiment = await analyze_sentiment(request.review)
         return {"tonality": sentiment}
     except Exception as ex:
         raise HTTPException(status_code=400, detail=str(ex))

@@ -358,7 +358,6 @@ const App = () => {
   const [isUploading, setIsUploading] = useState(false);
   const [decodedText, setDecodedText] = useState("");
   const [sentiment, setSentiment] = useState(null);
-  const [isReview, setIsReview] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [handTarget, setHandTarget] = useState("upload"); // "upload" | "recognize"
@@ -457,16 +456,6 @@ const App = () => {
       }
     });
   }, []);
-
-  useEffect(() => {
-    if (subscription?.type === "review" && preview && !decodedText) {
-      const toggle = setInterval(() => {
-        setHandTarget((prev) => (prev === "recognize" ? "review" : "recognize"));
-      }, 1000); 
-  
-      return () => clearInterval(toggle);
-    }
-  }, [subscription, preview, decodedText]);
   
   useEffect(() => {
     axios.get(`${API_BASE}/translate/languages`)
@@ -553,7 +542,7 @@ const App = () => {
 
       console.log("Изображение загружено:", response.data);
       setDecodedText(response.data.decoded_text || "Текст не найден");
-      setHandTarget("upload");
+      setHandTarget("review");
       alert("Изображение успешно загружено!");
     } catch (error) {
       console.error("Ошибка загрузки:", error);
@@ -600,15 +589,15 @@ const App = () => {
     setHandTarget("upload");
   };
 
-  const handleReviewAnalysis = async () => {
+  const handleReviewAnalysis = async (e) => {
+    e.preventDefault();
+
     if (!image || !user) return;
   
     setIsUploading(true);
     try {
-      const base64Image = await convertToBase64(image);
-  
-      const response = await axios.post(`${API_BASE}/image/analyze-review`, {
-        image: base64Image,
+      const response = await axios.post(`${API_BASE}/sentiment-analysis/single`, {
+        review: decodedText,
       }, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -617,11 +606,11 @@ const App = () => {
       });
   
       const data = response.data;
+
+      console.log("Аналіз відгуку:", data.tonality);
   
       if (data) {
-        setDecodedText(data.decoded_text || "");
-        setIsReview(data.is_review || false);
-        setSentiment(data.sentiment || null);
+        setSentiment(data.tonality || null);
         setHandTarget("upload");
         alert("Аналіз завершено!");
       } else {
@@ -636,7 +625,6 @@ const App = () => {
         alert("Не вдалося виконати аналіз.");
       }
       setSentiment(null);
-      setIsReview(false);
     } finally {
       setIsUploading(false);
     }
@@ -747,7 +735,7 @@ const App = () => {
 
               {user && (
                 <>
-                  <UploadForm onSubmit={handleUpload}>
+                  <UploadForm>
                   <FileUploadRow>
                       {handTarget === "upload" && <HandPointer>👉</HandPointer>}
                       <FileLabel htmlFor="fileUpload">Вибрати зображення</FileLabel>
@@ -785,7 +773,7 @@ const App = () => {
                             {handTarget === "review" && <HandPointer>👉</HandPointer>}
                             <Button
                               onClick={handleReviewAnalysis}
-                              disabled={!image}
+                              disabled={!decodedText}
                               style={{ backgroundColor: "#6c63ff", color: "white" }}
                             >
                               Отримати оцінку відгуку
@@ -836,7 +824,7 @@ const App = () => {
                   </DecodedText>      
                               
                   )}
-                  {isReview && sentiment && (
+                  {sentiment && (
                     <DecodedText>
                       <strong>Оцінка настрою відгуку:</strong>
                       <div style={{ fontSize: "20px", fontWeight: "bold" }}>

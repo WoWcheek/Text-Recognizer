@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Request
+import logging
 from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException
 from deep_translator import GoogleTranslator
 
 translate_route = APIRouter()
@@ -22,7 +23,8 @@ async def translate_text(request: TranslateRequest):
 @translate_route.get("/translate/languages")
 def get_supported_languages():
     try:
-        langs = GoogleTranslator.get_supported_languages(as_dict=True)
+        translator = GoogleTranslator()
+        langs = translator.get_supported_languages(as_dict=True)
         return {"languages": langs}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
