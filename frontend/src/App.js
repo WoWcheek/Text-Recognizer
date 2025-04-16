@@ -41,7 +41,7 @@ const UploadForm = styled.form`
   flex-direction: column;
   align-items: center;
   gap: 15px;
-  width: 90%;
+  width: 100%;
 
 `;
 
@@ -77,7 +77,8 @@ const Button = styled.button`
   font-size: 20px;
   font-weight: 500;
   transition: all 0.3s ease;
-  width: 70%;
+  width: 100%;
+  max-width: 500px;
 
   &:hover {
     background-color: #0069d9;
@@ -131,7 +132,7 @@ const DecodedText = styled.div`
   border: 2px solid #333;
   border-radius: 8px;
   width: 100%;
-  max-width: 400px;
+  max-width: 800px;
   word-wrap: break-word;
   color: #e0e0e0;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
@@ -169,9 +170,6 @@ const Card = styled.div`
 
 const SubscriptionButton = styled(Button)`
   background-color: #6c757d;
-  width: 70%;
-  margin-top: 20px;
-
   &:hover {
     background-color: #5a6268;
   }
@@ -402,6 +400,7 @@ const App = () => {
         "Найвищий пріоритет",
         "24/7 підтримка",
         "Додаткові функції",
+        "Можливість перекладу роспізнанного тексту на різні мови"
       ],
     },
     {
@@ -409,9 +408,10 @@ const App = () => {
       name: "Відгуки",
       price: "$15",
       features: [
-        "10 аналізів відгуків на день",
+        "Необмежені запити",
         "Оцінка настрою (позитив, нейтрально, негативно)",
-        "NLP аналіз тексту"
+        "Можливість перекладу роспізнанного тексту на різні мови",
+        "NLP аналіз тексту",         
       ]
     }
     
@@ -576,18 +576,28 @@ const App = () => {
     alert("Текст скопійовано у буфер обміну!");
   };
   
+  const handleCopyTrans = () => {
+    navigator.clipboard.writeText(translatedText);
+    alert("Переклад скопійовано у буфер обміну!");
+  };
+
   const handleRetry = () => {
     if (image) {
+      setSentiment(null); 
       handleUpload({ preventDefault: () => {} });
     }
   };
+  
   
   const handleNextAttempt = () => {
     setImage(null);
     setPreview(null);
     setDecodedText("");
+    setSentiment(null); 
+    setTranslatedText(""); 
     setHandTarget("upload");
   };
+  
 
   const handleReviewAnalysis = async (e) => {
     e.preventDefault();
@@ -641,7 +651,6 @@ const App = () => {
   };
   
   
-
   const handlePurchase = async () => {
     if (!selectedPlan) return;
   
@@ -702,6 +711,7 @@ const App = () => {
             <CardContent>
               {user && <AdminAccessButton user={user.user} />}
               <Title>🤖   Image Text Recognition</Title>
+              <Title style={{ fontSize: "24px"}}>Ця приложуха призначена для розпізнавання тексту з зображень та багато іншого</Title>
 
               {!user ? (
                 <>
@@ -752,6 +762,8 @@ const App = () => {
                           setImage(file);
                           setPreview(URL.createObjectURL(file));
                           setDecodedText("");
+                          setSentiment(null); 
+                          setTranslatedText("");
                           setHandTarget("recognize");
                         }
                       }}
@@ -796,7 +808,7 @@ const App = () => {
                       <SmallButton onClick={handleNextAttempt}>➡️ Наступна спроба</SmallButton>
                     </ResultActions>
 
-                    {languages.length > 0 && (
+                    {(subscription?.type === "pro" || subscription?.type === "review") && languages.length > 0 && (
                         <>
                           <div style={{ marginTop: "20px" }}>
                             <label style={{ color: "#ccc", marginRight: "10px" }}>Перекласти на:</label>
@@ -804,7 +816,9 @@ const App = () => {
                               value={selectedLang}
                               onChange={(e) => setSelectedLang(e.target.value)}
                               style={{
-                                padding: "8px", borderRadius: "8px", fontSize: "16px"
+                                padding: "8px",
+                                borderRadius: "8px",
+                                fontSize: "16px"
                               }}
                             >
                               {languages.map(([name, code]) => (
@@ -813,18 +827,24 @@ const App = () => {
                             </select>
                             <SmallButton onClick={handleTranslate}>🌍 Перекласти</SmallButton>
                           </div>
+
                           {translatedText && (
                             <div style={{ marginTop: "15px", color: "#66ffcc" }}>
                               <strong>Перекладений текст:</strong>
                               <div>{translatedText}</div>
+                              <ResultActions>
+                                <SmallButton onClick={handleCopyTrans}>📋 Копіювати</SmallButton>
+                                <SmallButton onClick={handleNextAttempt}>➡️ Наступна спроба</SmallButton>
+                              </ResultActions>
                             </div>
                           )}
                         </>
                       )}
+
                   </DecodedText>      
                               
                   )}
-                  {sentiment && (
+                 {subscription?.type === "review" && sentiment && (
                     <DecodedText>
                       <strong>Оцінка настрою відгуку:</strong>
                       <div style={{ fontSize: "20px", fontWeight: "bold" }}>
@@ -832,7 +852,6 @@ const App = () => {
                       </div>
                     </DecodedText>
                   )}
-
                 </>
               )}
             </CardContent>
