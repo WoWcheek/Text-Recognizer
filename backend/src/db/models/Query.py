@@ -5,6 +5,7 @@ from bson import ObjectId
 
 class Query:
     collection = queries_collection
+    
 
     @staticmethod
     def create(data):
@@ -14,6 +15,8 @@ class Query:
                 "userId": data["userId"],
                 "image": data["image"],
                 "text": data["text"],
+                "tonality": data.get("tonality"),
+                "feedback": data.get("feedback"),
                 "createdAt": datetime.utcnow()
             })
             print("✅ Inserted with ID:", str(result.inserted_id))

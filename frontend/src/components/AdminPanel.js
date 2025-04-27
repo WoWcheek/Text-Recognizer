@@ -43,6 +43,7 @@ const AdminPanel = () => {
     { name: "free", value: users.filter((u) => u.subscription?.type === "free").length },
     { name: "standart", value: users.filter((u) => u.subscription?.type === "standart").length },
     { name: "pro", value: users.filter((u) => u.subscription?.type === "pro").length },
+    { name: "review", value: users.filter((u) => u.subscription?.type === "review").length },
   ];
 
   const tariffChartData = [

@@ -26,7 +26,6 @@ const Container = styled.div`
   }
 `;
 
-
 const Title = styled.h1`
   font-size: 52px;
   color: #e0e0e0;
@@ -34,7 +33,6 @@ const Title = styled.h1`
   text-align: center;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 `;
-
 
 const UploadForm = styled.form`
   display: flex;
@@ -104,7 +102,6 @@ const ImagePreview = styled.img`
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
 `;
 
-
 const UserInfo = styled.div`
   font-size: 24px;
   color: #bbbbbb;
@@ -165,8 +162,6 @@ const Card = styled.div`
     max-width: 90%;
   }
 `;
-
-
 
 const SubscriptionButton = styled(Button)`
   background-color: #6c757d;
@@ -284,6 +279,7 @@ const HandPointer = styled.div`
     100% { transform: translateX(0); }
   }
 `;
+
 const ResultActions = styled.div`
   display: flex;
   justify-content: center;
@@ -304,7 +300,6 @@ const SmallButton = styled(Button)`
   }
 `;
 
-
 const FileUploadRow = styled.div`
   display: flex;
   align-items: center;
@@ -313,6 +308,7 @@ const FileUploadRow = styled.div`
   width: 100%;
   max-width: 500px;
 `;
+
 const RecognizeRow = styled.div`
   display: flex;
   align-items: center;
@@ -321,9 +317,6 @@ const RecognizeRow = styled.div`
   width: 100%;
   max-width: 500px;
 `;
-
-
-
 
 const modalStyles = {
   content: {
@@ -348,6 +341,19 @@ const modalStyles = {
   
 };
 
+const FeedbackButton = styled(Button)`
+  width: 150px;
+  background-color: #2e2e2e;
+  font-size: 14px;
+  margin: 10px;
+  padding: 10px 20px;
+
+  &:hover {
+    background-color: #444;
+  }
+`;
+
+
 const App = () => {
   const [user, setUser] = useState(null);
   const [subscription, setSubscription] = useState(null);
@@ -358,11 +364,13 @@ const App = () => {
   const [sentiment, setSentiment] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(null);
-  const [handTarget, setHandTarget] = useState("upload"); // "upload" | "recognize"
+  const [handTarget, setHandTarget] = useState("upload"); 
   const location = useLocation();
   const [translatedText, setTranslatedText] = useState("");
   const [languages, setLanguages] = useState([]);
   const [selectedLang, setSelectedLang] = useState("uk");
+  const [currentQueryId, setCurrentQueryId] = useState(null);
+
 
   
 
@@ -444,8 +452,6 @@ const App = () => {
     }
   }, [location.pathname]);
   
-  
-  
   useEffect(() => {
     window.addEventListener("message", (e) => {
       if (e.data?.type === "subscriptionPaid") {
@@ -479,7 +485,6 @@ const App = () => {
     }
   };
   
-
   const fetchUserInfo = async (token) => {
     try {
       const res = await axios.get(`${API_BASE}/user/me`, {
@@ -588,7 +593,6 @@ const App = () => {
     }
   };
   
-  
   const handleNextAttempt = () => {
     setImage(null);
     setPreview(null);
@@ -598,7 +602,6 @@ const App = () => {
     setHandTarget("upload");
   };
   
-
   const handleReviewAnalysis = async (e) => {
     e.preventDefault();
 
@@ -622,10 +625,16 @@ const App = () => {
       if (data) {
         setSentiment(data.tonality || null);
         setHandTarget("upload");
+      
+        if (data.query_id) {
+          setCurrentQueryId(data.query_id); // зберігаємо id для фідбеку
+        }
+      
         alert("Аналіз завершено!");
       } else {
         alert("Відповідь сервера порожня.");
       }
+      
   
     } catch (error) {
       console.error("Помилка при аналізі відгуку:", error);
@@ -640,7 +649,6 @@ const App = () => {
     }
   };
   
-  
   const translateSentiment = (sentiment) => {
     switch (sentiment?.toUpperCase()) {
       case "POSITIVE": return "😊 Позитивний";
@@ -649,7 +657,6 @@ const App = () => {
       default: return "🤔 Невідомо";
     }
   };
-  
   
   const handlePurchase = async () => {
     if (!selectedPlan) return;
@@ -701,6 +708,38 @@ const App = () => {
       alert("Произошла ошибка при покупке подписки");
     }
   };
+
+  const sendFeedback = async (feedbackValue) => {
+    if (!currentQueryId || typeof currentQueryId !== "string" || currentQueryId.length !== 24) {
+      console.error("❌ Некоректний або порожній query_id:", currentQueryId);
+      alert("Помилка: неможливо зберегти фідбек, оскільки ID запиту некоректний.");
+      return;
+    }
+  
+    try {
+      console.log({
+        query_id: currentQueryId,
+        feedback: feedbackValue,
+      });
+  
+      await axios.post(`${process.env.REACT_APP_API_URL}/image/sentiment-feedback`, {
+        query_id: currentQueryId,
+        feedback: feedbackValue,
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+  
+      alert("Ваш фідбек збережено. Дякуємо!");
+    } catch (error) {
+      console.error("Не вдалося зберегти фідбек:", error);
+      alert("Сталася помилка при збереженні фідбеку.");
+    }
+  };
+  
+  
   
   
   return (
@@ -850,8 +889,16 @@ const App = () => {
                       <div style={{ fontSize: "20px", fontWeight: "bold" }}>
                         {translateSentiment(sentiment)}
                       </div>
+                      <div>
+                      <p>Чи згодні ви з оцінкою?</p>
+                      <FeedbackButton onClick={() => sendFeedback("agree")}>✅ Згоден</FeedbackButton>
+                      <FeedbackButton onClick={() => sendFeedback("disagree")}>❌ Не згоден</FeedbackButton>
+                      <FeedbackButton onClick={() => sendFeedback("unknown")}>🤷 Не знаю</FeedbackButton>
+                  </div>
                     </DecodedText>
                   )}
+                  
+
                 </>
               )}
             </CardContent>

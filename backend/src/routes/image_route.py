@@ -5,28 +5,25 @@ import base64
 from PIL import Image
 from io import BytesIO
 from pydantic import BaseModel
-from fastapi import FastAPI, HTTPException, APIRouter, Request
-
-from utils.sentiment import analyze_sentiment, SingleReviewRequest
+from fastapi import HTTPException, APIRouter
+from bson import ObjectId
 from transformers import pipeline
-import requests
 from config import config
 from db.models.User import User
-
-
-from db.models.User import User
-
 from datetime import datetime
-
 from db.models.Query import Query
+from bson.errors import InvalidId
 
-reader = easyocr.Reader(['en'])
+reader = easyocr.Reader(['ru', 'uk', 'en'])
 image_route = APIRouter()
 sentiment_pipeline = pipeline("sentiment-analysis", model="blanchefort/rubert-base-cased-sentiment")
 
 class ImageRequest(BaseModel):
     image: str
 
+class FeedbackRequest(BaseModel):
+    query_id: str
+    feedback: str  # "agree", "disagree", "unknown"
 PLANS = {
     'free': {
         'limits': 5
@@ -41,7 +38,6 @@ PLANS = {
         'limits': -1  
     }
 }
-
 
 def decode_text_from_base64(base64_string: str) -> str:
     try:
@@ -112,3 +108,34 @@ def read_from_image(request: ImageRequest, user: dict = Depends(get_current_user
     except Exception as e:
         print(f"Помилка при розпізнаванні зображення: {str(e)}")
         raise HTTPException(status_code=400, detail=f"Помилка при розпізнаванні зображення: {str(e)}")
+    
+@image_route.post("/sentiment-feedback")
+async def sentiment_feedback(request: FeedbackRequest, user: dict = Depends(get_current_user)):
+
+    if request.feedback not in ["agree", "disagree", "unknown"]:
+        raise HTTPException(status_code=400, detail="Недопустиме значення фідбеку")
+    
+    try:
+        obj_id = ObjectId(request.query_id)
+    except InvalidId:
+        raise HTTPException(status_code=422, detail="Недійсний ID запиту")
+
+    updated = Query.collection.update_one(
+        {"_id": obj_id, "userId": str(user["_id"])},
+        {"$set": {"feedback": request.feedback}}
+    )
+
+    if updated.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Запис не знайдено або не належить користувачу")
+
+    return {"message": "Фідбек збережено успішно"}
+
+@image_route.get("/feedback", tags=["Feedback"])
+async def get_feedback_queries(user: dict = Depends(get_current_user)):
+    feedbacks = list(Query.collection.find({
+        "userId": str(user["_id"]),
+        "feedback": {"$in": ["agree", "disagree"]}
+    }))
+    for f in feedbacks:
+        f["_id"] = str(f["_id"])
+    return feedbacks

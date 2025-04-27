@@ -1,30 +1,26 @@
 from pydantic import BaseModel
-from nltk.sentiment import SentimentIntensityAnalyzer
 from fastapi import HTTPException
 from typing import List
+from utils.transformer_sentiment import predict_sentiment
 from deep_translator import GoogleTranslator
+
 
 
 class SingleReviewRequest(BaseModel):
     review: str
+    language: str = "uk"
 
 class ManyReviewsRequest(BaseModel):
     reviews: List[str]
+    language: str = "uk"
 
-analyzer = SentimentIntensityAnalyzer()
 
-async def analyze_sentiment(text: str) -> str:
+async def analyze_sentiment(text: str, language: str = "uk") -> str:
     try:
-        translated = GoogleTranslator(source='auto', target='en').translate(text)
-        text = translated
-
-        score = analyzer.polarity_scores(text)
-
-        if score["compound"] >= 0.05:
-            return "POSITIVE"
-        elif score["compound"] <= -0.05:
-            return "NEGATIVE"
-        else:
-            return "NEUTRAL"
+        if language in ["ru", "uk"]:
+            from deep_translator import GoogleTranslator
+            target_lang = "en"
+            text = GoogleTranslator(source=language, target=target_lang).translate(text)
+        return predict_sentiment(text)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return "невідомо"

@@ -7,7 +7,9 @@ from fastapi.responses import RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from utils.sentiment import analyze_sentiment, SingleReviewRequest, ManyReviewsRequest
 from db.models.User import User 
-
+from db.models.Query import Query
+from fastapi import Depends
+from utils.get_user import get_current_user
 from authlib.integrations.starlette_client import OAuth
 from starlette.middleware.sessions import SessionMiddleware
 from datetime import datetime, timedelta
@@ -26,7 +28,6 @@ SECRET_KEY = config['SECRET']
 GOOGLE_CLIENT_ID = config['GOOGLE_CLIENT_ID']
 GOOGLE_CLIENT_SECRET = config['GOOGLE_CLIENT_SECRET']
 REDIRECT_URI = config['REDIRECT_URI']
-
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY)
@@ -143,12 +144,28 @@ async def auth_callback(request: Request):
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.post("/sentiment-analysis/single")
-async def analyze_review(request: SingleReviewRequest):
+async def analyze_review(request: SingleReviewRequest, user: dict = Depends(get_current_user)):
     try:
         sentiment = await analyze_sentiment(request.review)
-        return {"tonality": sentiment}
+
+        query_result = Query.create({
+            "userId": str(user["_id"]),
+            "image": "",  
+            "text": request.review,
+            "tonality": sentiment
+        })
+
+        query_id = query_result["id"]
+
+        return {
+            "tonality": sentiment,
+            "query_id": query_id
+        }
+
     except Exception as ex:
         raise HTTPException(status_code=400, detail=str(ex))
+
+
 
 
 @app.post("/sentiment-analysis/many")
